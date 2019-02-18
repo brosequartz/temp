@@ -55,11 +55,37 @@ class DBWNode(object):
 
         # TODO: Create `Controller` object
         # self.controller = Controller(<Arguments you wish to provide>)
+        controller_kwargs = {"max_steer_angle": max_steer_angle}
+        self.controller = Controller(**controller_kwargs)
+        
+        self.target_speed = []
+        self.target_yaw_rate = []
+        self.current_speed = []
+        self.current_yaw_rate = []
+        self.dbw_status = False
 
         # TODO: Subscribe to all the topics you need to
+        rospy.Subscriber('/twist_cmd', TwistStamped, self.twist_cb, queue_size=1)
+        rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_cb, queue_size=1)
+        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_status_cb, queue_size=1)
 
         self.loop()
-
+    def twist_cb(self,msg):
+        rospy.loginfo("twist_cmd received: %s", msg)
+        self.target_speed = msg.twist.linear.x
+        self.target_yaw_rate = msg.twist.angular.z
+        #rospy.loginfo("target speed: %s , target yawrate: %s", self.target_speed , self.target_yaw_rate)
+       
+    def velocity_cb(self, msg):
+        #rospy.loginfo("current_velocity received: %s", msg)
+        self.current_speed = msg.twist.linear.x
+        self.current_yaw_rate = msg.twist.angular.z
+        rospy.loginfo("current speed: %s , current yawrate: %s", self.current_speed , self.current_yaw_rate)
+     
+    def dbw_status_cb(self, msg):
+        self.dbw_status=msg.data
+        rospy.loginfo('dbw_status: %s', self.dbw_status)
+    
     def loop(self):
         rate = rospy.Rate(50) # 50Hz
         while not rospy.is_shutdown():
@@ -70,8 +96,17 @@ class DBWNode(object):
             #                                                     <current linear velocity>,
             #                                                     <dbw status>,
             #                                                     <any other argument you need>)
+            control_kwargs = {"target_speed": self.target_speed,
+                               "target_yaw_rate": self.target_yaw_rate,
+                               "current_speed": self.current_speed,
+                               "current_yaw_rate": self.current_yaw_rate,
+                               "dbw_status": self.dbw_status}
+            throttle, brake, steering = self.controller.control(**control_kwargs)
+            rospy.loginfo("throttle: %s, brake: %s, steering: %s", throttle, brake, steering)
             # if <dbw is enabled>:
             #   self.publish(throttle, brake, steer)
+            if self.dbw_status == True:
+                self.publish(throttle, brake, steering)
             rate.sleep()
 
     def publish(self, throttle, brake, steer):
@@ -95,3 +130,4 @@ class DBWNode(object):
 
 if __name__ == '__main__':
     DBWNode()
+
