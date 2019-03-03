@@ -77,7 +77,6 @@ class TLClassifier(object):
         min_score_thresh = .5
         count = 0
         count1 = 0
-        # print(scores)
 
         for i in range(boxes.shape[0]):
             if scores is None or scores[i] > min_score_thresh:
