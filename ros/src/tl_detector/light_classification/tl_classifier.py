@@ -13,21 +13,21 @@ class TLClassifier(object):
         self.current_light = TrafficLight.UNKNOWN
 
         cwd = os.path.dirname(os.path.realpath(__file__))
-        label_map_path = os.path.join(cwd, "models/label_map.pbtxt")
         model_path = os.path.join(cwd, "models/{}".format(model_file))
-        rospy.logwarn("model_path={}".format(model_path))
+        print model_path
 
         # load frozen tensorflow model
         self.detection_graph = tf.Graph()
         with self.detection_graph.as_default():
-            od_graph_def = tf.GraphDef()
+
             with tf.gfile.GFile(model_path, 'rb') as fid:
-                serialized_graph = fid.read()
-                od_graph_def.ParseFromString(serialized_graph)
+                od_graph_def = tf.GraphDef()
+                print fid
+                od_graph_def.ParseFromString(fid.read())
                 tf.import_graph_def(od_graph_def, name='')
 
         self.category_index = {1: {'id': 1, 'name': 'Green'}, 2: {'id': 2, 'name': 'Red'},
-                               3: {'id': 3, 'name': 'Yellow'}, 4: {'id': 4, 'name': 'Unidentified'}}
+                               3: {'id': 3, 'name': 'Yellow'}, 4: {'id': 4, 'name': 'Off'}}
 
         # create tensorflow session for detection
         config = tf.ConfigProto()
@@ -46,8 +46,6 @@ class TLClassifier(object):
         self.detection_scores = self.detection_graph.get_tensor_by_name('detection_scores:0')
         self.detection_classes = self.detection_graph.get_tensor_by_name('detection_classes:0')
         self.num_detections = self.detection_graph.get_tensor_by_name('num_detections:0')
-
-        tensorflowNet = cv2.dnn.readNetFromTensorflow(model_path, label_map_path)
 
 
     def get_classification(self, image):
@@ -76,7 +74,6 @@ class TLClassifier(object):
 
         min_score_thresh = .5
         count = 0
-        count1 = 0
 
         for i in range(boxes.shape[0]):
             if scores is None or scores[i] > min_score_thresh:
@@ -84,12 +81,10 @@ class TLClassifier(object):
                 class_name = self.category_index[classes[i]]['name']
 
                 if class_name == 'Red':
-                    count += 1
-
-        # print(count)
-        if count < count1 - count:
-            self.current_light = TrafficLight.GREEN
-        else:
-            self.current_light = TrafficLight.RED
+                    self.current_light = TrafficLight.RED
+                elif class_name == 'Yellow':
+                    self.current_light = TrafficLight.YELLOW
+                elif class_name == 'Green':
+                    self.current_light = TrafficLight.GREEN
 
         return self.current_light
