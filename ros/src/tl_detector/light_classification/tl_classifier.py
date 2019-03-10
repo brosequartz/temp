@@ -9,19 +9,21 @@ from styx_msgs.msg import TrafficLight
 
 class TLClassifier(object):
     def __init__(self, model_file):
-        print model_file
         # TODO load classifier
         self.current_light = TrafficLight.UNKNOWN
 
         cwd = os.path.dirname(os.path.realpath(__file__))
-        model_path = os.path.join(cwd, "models/frozen_inference_graph_sim_.pb")
-        print model_path
+
+        model_path = os.path.join(cwd, "models/{}".format(model_file))
+        print(model_path)
+
         # load frozen tensorflow model
         self.detection_graph = tf.Graph()
         with self.detection_graph.as_default():
-            with tf.gfile.GFile(os.path.join(cwd, "models/frozen_inference_graph_sim_.pb"), 'rb') as fid:
-                od_graph_def = tf.GraphDef()
-                od_graph_def.ParseFromString(fid.read())
+            od_graph_def = tf.GraphDef()
+            with tf.gfile.GFile(model_path, 'rb') as fid:
+                serialized_graph = fid.read()
+                od_graph_def.ParseFromString(serialized_graph)
                 tf.import_graph_def(od_graph_def, name='')
 
         self.category_index = {1: {'id': 1, 'name': 'Green'}, 2: {'id': 2, 'name': 'Red'},
@@ -45,13 +47,14 @@ class TLClassifier(object):
         self.detection_classes = self.detection_graph.get_tensor_by_name('detection_classes:0')
         self.num_detections = self.detection_graph.get_tensor_by_name('num_detections:0')
 
-
     def get_classification(self, image):
+
         """Determines the color of the traffic light in the image
         Args:
             image (cv::Mat): image containing the traffic light
         Returns:
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
+
         """
         # return TrafficLight.RED
         # TODO implement light color prediction
@@ -76,12 +79,16 @@ class TLClassifier(object):
         for i in range(boxes.shape[0]):
             if scores is None or scores[i] > min_score_thresh:
                 class_name = self.category_index[classes[i]]['name']
+
                 if class_name == 'Red':
                     self.current_light = TrafficLight.RED
-                    count+=1
+                    count += 1
                 elif class_name == 'Yellow':
                     self.current_light = TrafficLight.YELLOW
                 elif class_name == 'Green':
                     self.current_light = TrafficLight.GREEN
+                else:
+                    self.current_light = TrafficLight.UNKNOWN
 
         return self.current_light
+
