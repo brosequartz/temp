@@ -1,33 +1,34 @@
 import os
-
 import cv2
 import numpy as np
 import rospy
 import tensorflow as tf
 from styx_msgs.msg import TrafficLight
 
-
 class TLClassifier(object):
     def __init__(self, model_file):
         # TODO load classifier
+        print(model_file)
         self.current_light = TrafficLight.UNKNOWN
-
         cwd = os.path.dirname(os.path.realpath(__file__))
-
-        model_path = os.path.join(cwd, "models/{}".format(model_file))
-        print(model_path)
+        model_path = cwd + "/models/" + model_file
 
         # load frozen tensorflow model
         self.detection_graph = tf.Graph()
         with self.detection_graph.as_default():
-            od_graph_def = tf.GraphDef()
             with tf.gfile.GFile(model_path, 'rb') as fid:
-                serialized_graph = fid.read()
-                od_graph_def.ParseFromString(serialized_graph)
+                od_graph_def = tf.GraphDef()
+                od_graph_def.ParseFromString(fid.read())
                 tf.import_graph_def(od_graph_def, name='')
 
-        self.category_index = {1: {'id': 1, 'name': 'Green'}, 2: {'id': 2, 'name': 'Red'},
-                               3: {'id': 3, 'name': 'Yellow'}, 4: {'id': 4, 'name': 'off'}}
+        is_site = rospy.get_param('is_site')
+        # Create a list of labels
+        if is_site:
+            self.category_index = {1: {'id': 1, 'name': 'Red'}, 2: {'id': 2, 'name': 'Yellow'},
+                                   3: {'id': 3, 'name': 'Green'}, 4: {'id': 4, 'name': 'off'}}
+        else:
+            self.category_index = {1: {'id': 1, 'name': 'Green'}, 2: {'id': 2, 'name': 'Red'},
+                                   3: {'id': 3, 'name': 'Yellow'}, 4: {'id': 4, 'name': 'off'}}
 
         # create tensorflow session for detection
         config = tf.ConfigProto()
@@ -73,22 +74,23 @@ class TLClassifier(object):
         scores = np.squeeze(scores)
         classes = np.squeeze(classes).astype(np.int32)
 
+        self.current_light = TrafficLight.UNKNOWN
         min_score_thresh = .5
         count = 0
-
-        for i in range(boxes.shape[0]):
-            if scores is None or scores[i] > min_score_thresh:
-                class_name = self.category_index[classes[i]]['name']
-
+        if scores is not None:
+            idx_max_score = np.argmax(scores)
+            if scores[idx_max_score] > min_score_thresh:
+                class_name = self.category_index[classes[idx_max_score]]['name']
                 if class_name == 'Red':
                     self.current_light = TrafficLight.RED
-                    count += 1
+                    print("---RED---")
+                    count+=1
                 elif class_name == 'Yellow':
                     self.current_light = TrafficLight.YELLOW
+                    print("---YELLOW---")
                 elif class_name == 'Green':
                     self.current_light = TrafficLight.GREEN
-                else:
-                    self.current_light = TrafficLight.UNKNOWN
+                    print("---GREEN---")
 
         return self.current_light
 
