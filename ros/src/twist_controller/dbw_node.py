@@ -5,7 +5,6 @@ from std_msgs.msg import Bool
 from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport
 from geometry_msgs.msg import TwistStamped
 import math
-
 from twist_controller import Controller
 
 '''
@@ -31,6 +30,7 @@ that we have created in the `__init__` function.
 
 '''
 
+
 class DBWNode(object):
     def __init__(self):
         rospy.init_node('dbw_node')
@@ -55,9 +55,18 @@ class DBWNode(object):
 
         # TODO: Create `Controller` object
         # self.controller = Controller(<Arguments you wish to provide>)
-        controller_kwargs = {"max_steer_angle": max_steer_angle}
+        controller_kwargs = {"max_steer_angle": max_steer_angle,
+                             "vehicle_mass": vehicle_mass,
+                             "fuel_capacity": fuel_capacity,
+                             "wheel_radius": wheel_radius,
+                             "brake_deadband": brake_deadband,
+                             "wheel_base": wheel_base,
+                             "steer_ratio": steer_ratio,
+                             "max_lat_accel": max_lat_accel,
+                             "decel_limit": decel_limit,
+                             "accel_limit": accel_limit}
         self.controller = Controller(**controller_kwargs)
-        
+
         self.target_speed = []
         self.target_yaw_rate = []
         self.current_speed = []
@@ -68,24 +77,24 @@ class DBWNode(object):
         rospy.Subscriber('/twist_cmd', TwistStamped, self.twist_cb, queue_size=1)
         rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_cb, queue_size=1)
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_status_cb, queue_size=1)
-
         self.loop()
+
     def twist_cb(self,msg):
-        rospy.loginfo("twist_cmd received: %s", msg)
+        #rospy.loginfo("twist_cmd received: %s", msg)
         self.target_speed = msg.twist.linear.x
         self.target_yaw_rate = msg.twist.angular.z
         #rospy.loginfo("target speed: %s , target yawrate: %s", self.target_speed , self.target_yaw_rate)
-       
+
     def velocity_cb(self, msg):
         #rospy.loginfo("current_velocity received: %s", msg)
         self.current_speed = msg.twist.linear.x
         self.current_yaw_rate = msg.twist.angular.z
         rospy.loginfo("current speed: %s , current yawrate: %s", self.current_speed , self.current_yaw_rate)
-     
+
     def dbw_status_cb(self, msg):
         self.dbw_status=msg.data
-        rospy.loginfo('dbw_status: %s', self.dbw_status)
-    
+        #rospy.loginfo('dbw_status: %s', self.dbw_status)
+
     def loop(self):
         rate = rospy.Rate(50) # 50Hz
         while not rospy.is_shutdown():
